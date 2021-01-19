@@ -204,8 +204,15 @@ Para isso, é necessário informar ao NextJS quais são os possíveis parâmetro
 
 No momento do build o NextJS irá executar o método *GetStaticPaths* para resolver os parâmetros e depois o *GetStaticProps* para cada um dos parâmetros, resultando em uma página estática para cada *Path*
 
+Parâmetro Fallback: Este parâmetro permite que o NextJS crie páginas dinâmicas que não foram criadas no momento do build, isto é, considerando o exemplo de requisição abaixo: Caso uma nova categoria seja adicionado após o build, quando está página for acessada por um usuário, o NextJS irá gerar uma página estática para este parâmetro
+Este processo leva um tempo e deve ser tratado na renderização, é possível saber que isso está acontecendo a partir do hook useRouter().isFallback do NextJS
+
 ```tsx
-export default function Category({ products }: CategoryProps) {}
+export default function Category({ products }: CategoryProps) {
+    if (router.isFallback) {
+        return <p>Carregando...</p>
+    }
+}
 
 /*
  * o retorno de GetStaticPaths deve conter o parâmetro usado no nome da página,
@@ -222,7 +229,7 @@ export const getStaticPaths: GetStaticPaths = async () => {
     })
 
     return {
-        paths, // 
+        paths,
         fallback: false,
     }
 }
@@ -273,4 +280,81 @@ Page                                                           Size     First Lo
    (ISR)     incremental static regeneration (uses revalidate in getStaticProps)
 
 Done in 7.00s.
+```
+
+# Dynamic import
+
+É possível fazer importações de módulos, bibliotecas e outros dados de forma dinâmica, apenas antes do uso e não junto junto com todo o projeto
+
+Quando se trata da importação dinâmica de componentes, podemos passar o parâmetro ssr, ao informar false para este parâmetro ele sempre será carregado no servidor, isto é útil quando o componente precisa de algum recurso do browser para ser carregado como: window, navigator, document
+
+```tsx
+export default function Home({recommendedProducts}: HomeProps) {
+  async function handleSum() {
+    const math = (await import('../lib/math')).default;  // importação dinâmica
+    alert(math.sum(3,5));
+  }
+
+  //importaçao dinâmica de componente
+const AddToCartModal = dynamic(
+    () => import('../../../components/AddToCartModal'),
+    {loading: () => <p>Loading...</p>, ssr: false}
+)
+
+export default function Product() {
+    const router = useRouter();
+
+    const [isAddToCartModalVisible, setIsAddToCartModalVisible] = useState(false);
+
+    function handleAddToCart() {
+        setIsAddToCartModalVisible(true);
+
+    }
+    
+    return (
+        <div>
+            <h1>{router.query.batata}</h1>
+
+            <button onClick={handleAddToCart}>Add to Cart</button>
+
+            {isAddToCartModalVisible && <AddToCartModal />}
+        </div>
+    )
+}
+```
+
+# Variáveis de ambiente
+
+Por padrão, o NextJS não envia as variáveis de ambiente para client-side
+Isso deve ser feito de forma explicitada através do prefixo NEXT_PUBLIC
+
+```tsx
+NEXT_PUBLIC_API_URL=http://localhost:3000
+```
+
+# Custom document
+
+Ao utilizar NextJS e Styled Componets é possível customizar a aplicação de forma global através do _documet.tsx
+
+Para isso é necessário importar os componentes Html, Head, Main, NextScript de next/document
+
+```tsx
+// após o método getInitialProps()
+
+render() {
+   return(
+    <Html lang="pt">
+      <Head> // altera o head de toda a aplicação
+        <meta charSet="utf-8"/>
+        <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet"></link>
+      </Head>
+
+      <body>
+        <Main /> // tag onde a aplicação será injetada
+        <NextScript/> // tag onde os scripts do NextJS serão injetados
+      </body>
+
+    </Html>
+   );
+  }
 ```
